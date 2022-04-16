@@ -49,13 +49,13 @@ public class MultiCoinsRequirement extends TakableRequirement<MultiCoinsRequest>
             return null;
         }
         Optional<Player> optional = Optional.ofNullable(Bukkit.getPlayer(uuid));
-        double amount = Optional.ofNullable(ExpressionUtils.getResult(parsed)).map(BigDecimal::doubleValue).orElseGet(() -> {
-            optional.ifPresent(player -> MessageUtils.sendMessage(player, MessageConfig.INVALID_NUMBER.getValue().replace("{input}", parsed)));
-            return 0D;
-        });
         CoinHolder holder = MultiCoinsBridge.getHolder(split[0].trim()).orElseGet(() -> {
             optional.ifPresent(player -> MessageUtils.sendMessage(player, "&cThe coin holder &6" + split[0].trim() + " &cis not found"));
             return null;
+        });
+        double amount = Optional.ofNullable(ExpressionUtils.getResult(split[1].trim())).map(BigDecimal::doubleValue).orElseGet(() -> {
+            optional.ifPresent(player -> MessageUtils.sendMessage(player, MessageConfig.INVALID_NUMBER.getValue().replace("{input}", parsed)));
+            return 0D;
         });
         return new MultiCoinsRequest(holder, amount);
     }
@@ -65,9 +65,11 @@ public class MultiCoinsRequirement extends TakableRequirement<MultiCoinsRequest>
         MultiCoinsRequest request = getParsedValue(uuid);
         if (request.amount > 0 && request.holder != null && !MultiCoinsBridge.has(uuid, request.holder, request.amount)) {
             return false;
-        } else {
+        } else if (request.holder != null) {
             checked.put(uuid, request);
             return true;
+        } else {
+            return false;
         }
     }
 }
