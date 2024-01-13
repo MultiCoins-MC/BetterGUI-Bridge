@@ -1,49 +1,44 @@
 package me.hsgamer.bettergui.multicoinsbridge;
 
 import me.hsgamer.bettergui.api.action.BaseAction;
-import me.hsgamer.bettergui.config.MessageConfig;
-import me.hsgamer.bettergui.lib.core.expression.ExpressionUtils;
-import me.hsgamer.bettergui.lib.taskchain.TaskChain;
-import me.hsgamer.hscore.bukkit.utils.MessageUtils;
+import me.hsgamer.bettergui.builder.ActionBuilder;
+import me.hsgamer.hscore.bukkit.scheduler.Scheduler;
 import me.hsgamer.hscore.common.Validate;
+import me.hsgamer.hscore.task.element.TaskProcess;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 
-import java.util.Objects;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 
 public class GiveMultiCoinsAction extends BaseAction {
-    public GiveMultiCoinsAction(String string) {
-        super(string);
+    private final String holderName;
+
+    public GiveMultiCoinsAction(ActionBuilder.Input input) {
+        super(input);
+        this.holderName = input.option;
     }
 
     @Override
-    public void addToTaskChain(UUID uuid, TaskChain<?> taskChain) {
+    public void accept(UUID uuid, TaskProcess process) {
         String parsed = getReplacedString(uuid);
-        String[] split = parsed.split(" ", 2);
-        if (split.length != 2) {
-            Optional.ofNullable(Bukkit.getPlayer(uuid)).ifPresent(player -> player.sendMessage(ChatColor.RED + "Error: Invalid format. Please inform the staff."));
+        Optional<Double> optionalAmount = Validate.getNumber(parsed).map(BigDecimal::doubleValue);
+        if (!optionalAmount.isPresent()) {
+            Optional.ofNullable(Bukkit.getPlayer(uuid)).ifPresent(player -> player.sendMessage(ChatColor.RED + "Invalid amount: " + parsed));
+            process.next();
             return;
         }
-        String holderName = split[0].trim();
-        String rawAmount = split[1].trim();
-        double amount = 0;
-        if (Validate.isValidPositiveNumber(rawAmount)) {
-            amount = Double.parseDouble(rawAmount);
-        } else if (ExpressionUtils.isValidExpression(rawAmount)) {
-            amount = Objects.requireNonNull(ExpressionUtils.getResult(parsed)).doubleValue();
-        } else {
-            Optional.ofNullable(Bukkit.getPlayer(uuid)).ifPresent(player -> MessageUtils.sendMessage(player, MessageConfig.INVALID_NUMBER.getValue().replace("{input}", parsed)));
-        }
-
+        double amount = optionalAmount.get();
         if (amount > 0) {
-            double finalAmount = amount;
-            taskChain.sync(() -> {
-                if (!MultiCoinsBridge.give(uuid, holderName, finalAmount)) {
+            Scheduler.current().sync().runTask(() -> {
+                if (!MultiCoinsBridge.give(uuid, holderName, amount)) {
                     Optional.ofNullable(Bukkit.getPlayer(uuid)).ifPresent(player -> player.sendMessage(ChatColor.RED + "Error: the transaction couldn't be executed. Please inform the staff."));
                 }
+                process.next();
             });
+        } else {
+            process.next();
         }
     }
 }

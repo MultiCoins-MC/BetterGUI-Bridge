@@ -1,20 +1,24 @@
 package me.hsgamer.bettergui.multicoinsbridge;
 
-import me.hsgamer.bettergui.api.addon.BetterGUIAddon;
 import me.hsgamer.bettergui.builder.ActionBuilder;
 import me.hsgamer.bettergui.builder.RequirementBuilder;
-import me.hsgamer.bettergui.lib.core.variable.VariableManager;
+import me.hsgamer.hscore.common.StringReplacer;
+import me.hsgamer.hscore.expansion.common.Expansion;
+import me.hsgamer.hscore.variable.VariableBundle;
 
-public final class Main extends BetterGUIAddon {
+public final class Main implements Expansion {
+    private final VariableBundle variableBundle = new VariableBundle();
+
     @Override
     public void onEnable() {
         MultiCoinsBridge.setupPlugin();
         ActionBuilder.INSTANCE.register(GiveMultiCoinsAction::new, "give-multicoins", "give-mc", "give-coins");
         RequirementBuilder.INSTANCE.register(MultiCoinsRequirement::new, "multicoins", "mc", "coins");
-        VariableManager.register("multicoins", (original, uuid) -> {
-            if (original.length() < 2) return null;
-            String currency = original.substring(2);
-            return MultiCoinsBridge.get(uuid, currency).map(String::valueOf).orElse("");
-        });
+        variableBundle.register("multicoins_", StringReplacer.of((original, uuid) -> MultiCoinsBridge.get(uuid, original).map(String::valueOf).orElse("")));
+    }
+
+    @Override
+    public void onDisable() {
+        variableBundle.unregisterAll();
     }
 }
